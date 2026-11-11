@@ -1,268 +1,218 @@
 /**
- * Google Docs Multilingual Translator
+ * Translates the active Google Doc from English into seven languages:
+ * Simplified Chinese, Japanese, Russian, Spanish,
+ * Portuguese, German, and French.
  *
- * Creates translated copies of the active Google Doc in seven languages,
- * keeps the original formatting (fonts, sizes, bold, italic, colors, links,
- * lists and tables), adds a localized disclaimer to each footer, and exports
- * every copy as a PDF. All files are saved in the same Drive folder as the
- * original document.
- *
- * Author: Luciana Rodrigues
- * License: MIT
+ * Adds a localized disclaimer to each footer and exports each copy as PDF.
+ * All files are saved in the same Drive folder as the original document.
  */
+function translateAndExportDocSevenLanguages() {
+  const ORIGINAL_DOC_ID = DocumentApp.getActiveDocument().getId();
 
-/* -------------------------------------------------------------------------- */
-/*  Configuration                                                             */
-/* -------------------------------------------------------------------------- */
+  const TRANSLATIONS = {
+    zh_CN: "zh-CN",
+    ja_JP: "ja",
+    ru_RU: "ru",
+    es_ES: "es",
+    pt_BR: "pt",
+    de_DE: "de",
+    fr_FR: "fr"
+  };
 
-/** Language of the original document (ISO-639 code used by LanguageApp). */
-const SOURCE_LANGUAGE = 'en';
+  const FOOTER_TEXTS = {
+    zh_CN:
+      "本转录稿是由人工智能生成的初稿，可能存在不准确之处。本材料归德噶国际（Tergar International）所有，仅供德噶禅修教师培训项目内部使用。严禁未经授权在该项目之外复制、传播或使用本材料。",
 
-/**
- * Target languages.
- * - suffix: added to the copy's file name (e.g. "Report-fr")
- * - code:   language code passed to LanguageApp.translate
- * - footer: disclaimer added to the footer of that copy
- *
- * Add, remove or reorder entries to change the output.
- */
-const LANGUAGES = [
-  {
-    suffix: 'es',
-    name: 'Spanish',
-    code: 'es',
-    footer: 'Este documento es una traducción automática preliminar y puede contener imprecisiones.'
-  },
-  {
-    suffix: 'pt-BR',
-    name: 'Portuguese (Brazil)',
-    code: 'pt',
-    footer: 'Este documento é uma tradução automática preliminar e pode conter imprecisões.'
-  },
-  {
-    suffix: 'fr',
-    name: 'French',
-    code: 'fr',
-    footer: 'Ce document est une traduction automatique préliminaire et peut contenir des inexactitudes.'
-  },
-  {
-    suffix: 'de',
-    name: 'German',
-    code: 'de',
-    footer: 'Dieses Dokument ist eine vorläufige maschinelle Übersetzung und kann Ungenauigkeiten enthalten.'
-  },
-  {
-    suffix: 'zh',
-    name: 'Chinese (Simplified)',
-    code: 'zh-CN',
-    footer: '本文件为初步机器翻译，可能包含不准确之处。'
-  },
-  {
-    suffix: 'ja',
-    name: 'Japanese',
-    code: 'ja',
-    footer: '本書は暫定的な機械翻訳であり、不正確な内容が含まれている可能性があります。'
-  },
-  {
-    suffix: 'ru',
-    name: 'Russian',
-    code: 'ru',
-    footer: 'Данный документ является предварительным машинным переводом и может содержать неточности.'
-  }
-];
+    ja_JP:
+      "この書き起こしは、人工知能によって生成された暫定版であり、不正確な内容が含まれている可能性があります。本資料はTergar Internationalに帰属し、Tergarの瞑想指導者養成プログラム内での使用のみを目的としています。同プログラム外での無断複製、配布、使用は固く禁じられています。",
 
-/** Footer disclaimer font size, in points. */
-const FOOTER_FONT_SIZE = 10;
+    ru_RU:
+      "Эта расшифровка представляет собой предварительную версию, созданную искусственным интеллектом, и может содержать неточности. Этот материал является собственностью Tergar International и предназначен исключительно для использования в рамках Программы подготовки преподавателей медитации Тергар. Несанкционированное копирование, распространение или использование этого материала за пределами программы строго запрещено.",
 
-/* -------------------------------------------------------------------------- */
-/*  Menu                                                                      */
-/* -------------------------------------------------------------------------- */
+    es_ES:
+      "Esta transcripción es un documento preliminar generado por inteligencia artificial y puede contener imprecisiones. Este material es propiedad de Tergar International y está destinado exclusivamente para su uso dentro del Programa de Formación de Profesores de Meditación de Tergar. Queda estrictamente prohibida su copia, distribución o utilización no autorizada fuera del Programa de Formación de Profesores de Meditación de Tergar.",
 
-/** Adds a "Translate" menu to the Google Doc when it opens. */
-function onOpen() {
-  DocumentApp.getUi()
-    .createMenu('Translate')
-    .addItem('All languages (7)', 'translateAll')
-    .addSeparator()
-    .addItem('European: ES · PT-BR · FR · DE', 'translateEuropean')
-    .addItem('Asian & Russian: ZH · JA · RU', 'translateAsianRussian')
-    .addToUi();
-}
+    pt_BR:
+      "Esta transcrição é um documento preliminar gerado por inteligência artificial e pode conter imprecisões. Este material é propriedade da Tergar International e destina-se exclusivamente ao uso no Programa de Formação de Professores de Meditação da Tergar. É estritamente proibida a cópia, distribuição ou utilização não autorizada fora do Programa de Formação de Professores de Meditação da Tergar.",
 
-/* -------------------------------------------------------------------------- */
-/*  Entry points                                                              */
-/* -------------------------------------------------------------------------- */
+    de_DE:
+      "Dieses Transkript ist eine mithilfe künstlicher Intelligenz erstellte vorläufige Fassung und kann Ungenauigkeiten enthalten. Dieses Material ist Eigentum von Tergar International und ausschließlich zur Verwendung innerhalb des Tergar-Ausbildungsprogramms für Meditationslehrende bestimmt. Die unbefugte Vervielfältigung, Verbreitung oder Verwendung außerhalb dieses Programms ist strengstens untersagt.",
 
-/** Translates the active document into all configured languages. */
-function translateAll() {
-  translateActiveDocument_(LANGUAGES.map(function (l) { return l.suffix; }));
-}
+    fr_FR:
+      "Cette transcription est un document préliminaire généré par intelligence artificielle et peut contenir des inexactitudes. Ce document est la propriété de Tergar International et est destiné exclusivement à un usage dans le cadre du Programme de formation des enseignants de méditation de Tergar. Toute copie, distribution ou utilisation non autorisée en dehors de ce programme est strictement interdite."
+  };
 
-/** Spanish, Portuguese (Brazil), French and German. */
-function translateEuropean() {
-  translateActiveDocument_(['es', 'pt-BR', 'fr', 'de']);
-}
+  const originalFile = DriveApp.getFileById(ORIGINAL_DOC_ID);
+  const folders = originalFile.getParents();
 
-/** Chinese, Japanese and Russian. */
-function translateAsianRussian() {
-  translateActiveDocument_(['zh', 'ja', 'ru']);
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Main workflow                                                             */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Creates one translated copy (Google Doc + PDF) per selected language.
- * Splitting the work into groups helps stay under Apps Script's
- * 6-minute execution limit for long documents.
- *
- * @param {string[]} suffixes Suffixes of the LANGUAGES entries to process.
- */
-function translateActiveDocument_(suffixes) {
-  const originalFile = DriveApp.getFileById(DocumentApp.getActiveDocument().getId());
-  const parents = originalFile.getParents();
-
-  if (!parents.hasNext()) {
-    throw new Error('The original document is not in any Drive folder.');
+  if (!folders.hasNext()) {
+    throw new Error("The original document is not in any folder.");
   }
 
-  const folder = parents.next();
-  const languages = LANGUAGES.filter(function (l) {
-    return suffixes.indexOf(l.suffix) !== -1;
-  });
+  const folder = folders.next();
 
-  languages.forEach(function (language) {
-    const copyName = originalFile.getName() + '-' + language.suffix;
-    const copy = originalFile.makeCopy(copyName, folder);
-    const document = DocumentApp.openById(copy.getId());
+  /**
+   * Translates text children and reapplies each formatting run's attributes,
+   * including font, size, bold, italic, color, and links.
+   */
+  function translateTextChildren_(container, language) {
+    const numberOfChildren = container.getNumChildren();
 
-    translateBody_(document.getBody(), language.code);
-    setFooterDisclaimer_(document, language.footer);
-    document.saveAndClose();
+    for (let index = 0; index < numberOfChildren; index++) {
+      const child = container.getChild(index);
 
-    exportPdf_(copy.getId(), copyName, folder);
-    Logger.log('Done: ' + language.name + ' → ' + copyName);
-  });
-
-  Logger.log('Finished ' + languages.length + ' translation(s).');
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Translation helpers                                                       */
-/* -------------------------------------------------------------------------- */
-
-/** Translates every paragraph, list item and table in the document body. */
-function translateBody_(body, lang) {
-  for (let i = 0; i < body.getNumChildren(); i++) {
-    translateElement_(body.getChild(i), lang);
-  }
-}
-
-/** Dispatches an element to the right translator based on its type. */
-function translateElement_(element, lang) {
-  const type = element.getType();
-
-  if (type === DocumentApp.ElementType.PARAGRAPH) {
-    translateTextChildren_(element.asParagraph(), lang);
-  } else if (type === DocumentApp.ElementType.LIST_ITEM) {
-    translateTextChildren_(element.asListItem(), lang);
-  } else if (type === DocumentApp.ElementType.TABLE) {
-    translateTable_(element.asTable(), lang);
-  }
-}
-
-/** Translates the paragraphs and list items inside each table cell. */
-function translateTable_(table, lang) {
-  for (let r = 0; r < table.getNumRows(); r++) {
-    const row = table.getRow(r);
-
-    for (let c = 0; c < row.getNumCells(); c++) {
-      const cell = row.getCell(c);
-
-      for (let k = 0; k < cell.getNumChildren(); k++) {
-        translateElement_(cell.getChild(k), lang);
+      if (child.getType() !== DocumentApp.ElementType.TEXT) {
+        continue;
       }
-    }
-  }
-}
 
-/**
- * Translates the text children of a paragraph or list item while keeping
- * every formatting run (font, size, bold, italic, color, link, etc.).
- *
- * Each run with its own formatting is translated separately, then the
- * original attributes are re-applied to the matching translated text.
- */
-function translateTextChildren_(container, lang) {
-  for (let i = 0; i < container.getNumChildren(); i++) {
-    const child = container.getChild(i);
+      const textElement = child.asText();
+      const originalText = textElement.getText();
 
-    if (child.getType() !== DocumentApp.ElementType.TEXT) {
-      continue;
-    }
+      if (originalText.trim() === "") {
+        continue;
+      }
 
-    const textElement = child.asText();
-    const originalText = textElement.getText();
+      const attributeIndices = textElement.getTextAttributeIndices();
+      const translatedRuns = [];
 
-    if (originalText.trim() === '') {
-      continue;
-    }
+      for (
+        let runIndex = 0;
+        runIndex < attributeIndices.length;
+        runIndex++
+      ) {
+        const start = attributeIndices[runIndex];
 
-    const starts = textElement.getTextAttributeIndices();
-    const runs = [];
+        const end =
+          runIndex + 1 < attributeIndices.length
+            ? attributeIndices[runIndex + 1]
+            : originalText.length;
 
-    for (let r = 0; r < starts.length; r++) {
-      const start = starts[r];
-      const end = r + 1 < starts.length ? starts[r + 1] : originalText.length;
-      const parts = originalText.substring(start, end).match(/^(\s*)([\s\S]*?)(\s*)$/);
-      const content = parts[2];
+        const runText = originalText.substring(start, end);
+        const whitespaceMatch = runText.match(/^(\s*)([\s\S]*?)(\s*)$/);
 
-      const translated = content === ''
-        ? ''
-        : LanguageApp.translate(content, SOURCE_LANGUAGE, lang);
+        const leadingWhitespace = whitespaceMatch[1];
+        const content = whitespaceMatch[2];
+        const trailingWhitespace = whitespaceMatch[3];
 
-      runs.push({
-        text: parts[1] + translated + parts[3],
-        attributes: textElement.getAttributes(start)
+        const translatedContent =
+          content === ""
+            ? ""
+            : LanguageApp.translate(content, "en", language);
+
+        translatedRuns.push({
+          text: leadingWhitespace + translatedContent + trailingWhitespace,
+          attributes: textElement.getAttributes(start)
+        });
+      }
+
+      const completeTranslation = translatedRuns
+        .map(function (run) {
+          return run.text;
+        })
+        .join("");
+
+      textElement.setText(completeTranslation);
+
+      let translatedPosition = 0;
+
+      translatedRuns.forEach(function (run) {
+        if (run.text.length > 0) {
+          textElement.setAttributes(
+            translatedPosition,
+            translatedPosition + run.text.length - 1,
+            run.attributes
+          );
+        }
+
+        translatedPosition += run.text.length;
       });
     }
+  }
 
-    textElement.setText(runs.map(function (run) { return run.text; }).join(''));
+  /**
+   * Translates paragraphs, list items, and tables within a container.
+   */
+  function translateContainer_(container, language) {
+    for (let index = 0; index < container.getNumChildren(); index++) {
+      const element = container.getChild(index);
+      const type = element.getType();
 
-    let position = 0;
-    runs.forEach(function (run) {
-      if (run.text.length > 0) {
-        textElement.setAttributes(position, position + run.text.length - 1, run.attributes);
+      if (type === DocumentApp.ElementType.PARAGRAPH) {
+        translateTextChildren_(element.asParagraph(), language);
+      } else if (type === DocumentApp.ElementType.LIST_ITEM) {
+        translateTextChildren_(element.asListItem(), language);
+      } else if (type === DocumentApp.ElementType.TABLE) {
+        translateTable_(element.asTable(), language);
       }
-      position += run.text.length;
+    }
+  }
+
+  /**
+   * Translates each table cell, including nested tables.
+   */
+  function translateTable_(table, language) {
+    for (let rowIndex = 0; rowIndex < table.getNumRows(); rowIndex++) {
+      const row = table.getRow(rowIndex);
+
+      for (let cellIndex = 0; cellIndex < row.getNumCells(); cellIndex++) {
+        translateContainer_(row.getCell(cellIndex), language);
+      }
+    }
+  }
+
+  /**
+   * Exports a translated Google Doc as PDF to the original folder.
+   */
+  function exportPdf_(fileId, fileName) {
+    const exportUrl =
+      "https://docs.google.com/document/d/" + fileId + "/export?format=pdf";
+
+    const response = UrlFetchApp.fetch(exportUrl, {
+      headers: {
+        Authorization: "Bearer " + ScriptApp.getOAuthToken()
+      }
     });
-  }
-}
 
-/* -------------------------------------------------------------------------- */
-/*  Footer & export                                                           */
-/* -------------------------------------------------------------------------- */
-
-/** Replaces the footer content with a centered disclaimer. */
-function setFooterDisclaimer_(document, text) {
-  let footer = document.getFooter();
-
-  if (!footer) {
-    footer = document.addFooter();
-  } else {
-    footer.clear();
+    return folder.createFile(
+      response.getBlob().setName(fileName + ".pdf")
+    );
   }
 
-  footer.appendParagraph('');
-  footer.appendParagraph(text)
-    .setAlignment(DocumentApp.HorizontalAlignment.CENTER)
-    .setFontSize(FOOTER_FONT_SIZE);
-  footer.appendParagraph('');
-}
+  Object.keys(TRANSLATIONS).forEach(function (suffix) {
+    const language = TRANSLATIONS[suffix];
+    const translatedName = originalFile.getName() + "-" + suffix;
 
-/** Saves a PDF version of a Google Doc in the given folder. */
-function exportPdf_(fileId, fileName, folder) {
-  const pdf = DriveApp.getFileById(fileId).getAs(MimeType.PDF).setName(fileName + '.pdf');
-  folder.createFile(pdf);
+    Logger.log("Starting translation: " + suffix);
+
+    const translatedCopy = originalFile.makeCopy(translatedName, folder);
+    const translatedDocument = DocumentApp.openById(translatedCopy.getId());
+
+    translateContainer_(translatedDocument.getBody(), language);
+
+    let footer = translatedDocument.getFooter();
+
+    if (!footer) {
+      footer = translatedDocument.addFooter();
+    } else {
+      footer.clear();
+    }
+
+    footer.appendParagraph("");
+
+    const disclaimer = footer.appendParagraph(FOOTER_TEXTS[suffix]);
+    disclaimer.setAlignment(DocumentApp.HorizontalAlignment.CENTER);
+    disclaimer.setFontSize(10);
+
+    footer.appendParagraph("");
+
+    translatedDocument.saveAndClose();
+
+    const pdfFile = exportPdf_(translatedCopy.getId(), translatedName);
+
+    Logger.log("Completed: " + suffix);
+    Logger.log("Google Doc: " + translatedCopy.getUrl());
+    Logger.log("PDF: " + pdfFile.getUrl());
+  });
+
+  Logger.log("All seven translations and PDF exports are complete.");
 }
